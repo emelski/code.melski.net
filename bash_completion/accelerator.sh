@@ -20,14 +20,29 @@
 #   available here:
 #
 #   http://bash-completion.alioth.debian.org/
+#
+#   To install and use this file:
+#
+#   * On systems which have installed the bash-completion package and
+#     configured the default bashrc to load completion modules (such as
+#     Ubuntu 9.x/10.x and SUSE 11):  copy this file to
+#     /etc/bash_completion.d/accelerator.sh.
+#   * On other systems, modify $(HOME)/.bashrc to source this file at
+#     startup.
+#
+#  ElectricAccelerator, ElectricMake and ElectricInsight are trademarks of
+#  Electric Cloud, Inc.
 
+
+# _get_cword
+# 
 # Get the word to complete.
+#
 # This is nicer than ${COMP_WORDS[$COMP_CWORD]}, since it handles cases
 # where the user is completing in the middle of a word.
 # (For example, if the line is "ls foobar",
 # and the cursor is here -------->   ^
 # it will complete just "foo", not "foobar", which is what the user wants.)
-#
 #
 # Accepts an optional parameter indicating which characters out of
 # $COMP_WORDBREAKS should NOT be considered word breaks. This is useful
@@ -66,6 +81,8 @@ _get_cword()
         fi
 }
 
+# _filedir
+#
 # This function performs file and directory completion. It's better than
 # simply using 'compgen -f', because it honours spaces in filenames.
 # If passed -d, it completes only on directories. If passed anything else,
@@ -92,8 +109,10 @@ _filedir()
         COMPREPLY=( "${COMPREPLY[@]}" "${toks[@]}" )
 }
 
-# Filter a list of words ($1) out of another list of words ($2).
-# Result is stored in $_filtered after this function returns.
+# _filterout
+#
+# Filter a list of words ($1) out of another list of words ($2).  Result is
+# stored in $_filtered after this function returns.
 
 _filterout()
 {
@@ -105,7 +124,9 @@ _filterout()
         return 0
 }
 
-# ElectricMake completion
+# _emake
+#
+# Bash completion for ElectricMake.
 #
 _emake()
 {
@@ -341,7 +362,9 @@ _emake()
 } &&
 complete -o nospace -F _emake $filenames emake
 
-# ElectricnInsight completion: match *.anno and *.xml files, and directories.
+# _einsight
+#
+# Bash completion for ElectricInsight.
 
 _einsight()
 {
