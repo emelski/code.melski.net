@@ -1,0 +1,289 @@
+# This function performs file and directory completion. It's better than
+# simply using 'compgen -f', because it honours spaces in filenames.
+# If passed -d, it completes only on directories. If passed anything else,
+# it's assumed to be a file glob to complete on.
+#
+_filedir()
+{
+        local IFS=$'\t\n' xspec
+
+        _expand || return 0
+
+        local toks=( ) tmp
+        while read -r tmp; do
+                [[ -n $tmp ]] && toks[${#toks[@]}]=$tmp
+        done < <( compgen -d -- "$(quote_readline "$cur")" )
+        
+        if [[ "$1" != -d ]]; then
+                xspec=${1:+"!*.$1"}
+                while read -r tmp; do
+                        [[ -n $tmp ]] && toks[${#toks[@]}]=$tmp
+                done < <( compgen -f -X "$xspec" -- "$(quote_readline "$cur")" )
+        fi
+
+        COMPREPLY=( "${COMPREPLY[@]}" "${toks[@]}" )
+}
+
+_filterout()
+{
+        # Filter a list of words ($1) out of another list of words ($2).
+        # Result is stored in $_filtered after this function returns.
+
+        local IFS=$'\t\n ,' n
+        _filtered=$2
+        for n in $1 ; do
+            _filtered=${_filtered/$n/}
+        done
+        return 0
+}
+
+# ElectricMake completion
+#
+_emake()
+{
+        local file makef makef_dir="." makef_inc cur prev i cc pp opts
+
+        COMPREPLY=()
+        cur=`_get_cword`
+        prev=${COMP_WORDS[COMP_CWORD-1]}
+
+        # --name value style option
+        case $prev in
+                -f|-o|-W|--file|--makefile|--old-file|--new-file|--assume-old|--assume-new|--what-if)
+                        _filedir
+                        return 0
+                        ;;
+                -I|-C|-directory|--include-dir)
+                        _filedir -d
+                        return 0
+                        ;;
+        esac
+
+        # --name=value style option
+        if [[ "$cur" == *=* ]]; then
+                prev=${cur/=*/}
+                cur=${cur/*=/}
+                case "$prev" in
+                        --@(file|makefile|emake-annofile|emake-historyfile|emake-ledgerfile|emake-subbuild-db))
+                                _filedir
+                                return 0
+                                ;;
+                        --@(directory|include-dir|emake-tmpdir))
+                                _filedir -d
+                                return 0
+                                ;;
+                        --@(emake-debug))
+                                pp=""
+                                cc=${cur}
+                                if [[ -n $cc ]] ; then
+                                        pp="-P $cc"
+                                        cc=""
+                                fi
+                                COMPREPLY=( $( compgen -W 'a c f g h j L l m n p r s t e o D M S' $pp -- $cc ) )
+                                return 0
+                                ;;
+
+
+                        --@(emake-clearcase))
+                                pp=""
+                                cc=${cur}
+                                opts='rofs vobs'
+                                if [[ "$cur" == *,* ]]; then
+                                    cc=${cur/*,/}
+                                    pp="-P ${cur/,$cc/,}"
+                                    _filterout "$pp" "$opts"
+                                    opts=$_filtered
+
+                                fi
+                                COMPREPLY=( $( compgen -W "$opts" $pp -- $cc ) )
+                                return 0
+                                ;;
+                                        
+                        --@(emake-history))
+                                COMPREPLY=( $( compgen -W 'create merge read' -- $cur ) )
+                                return 0
+                                ;;
+
+                        --@(emake-emulation))
+                                COMPREPLY=( $( compgen -W 'gmake gmake3.80 gmake3.81 ant' -- $cur ) )
+                                return 0
+                                ;;
+                                        
+                        --@(emake-ledger))
+                                pp=""
+                                cc=${cur}
+                                opts='timestamp size command'
+                                if [[ "$cur" == *,* ]]; then
+                                    cc=${cur/*,/}
+                                    pp="-P ${cur/,$cc/,}"
+                                    _filterout "$pp" "$opts"
+                                    opts=$_filtered
+                                fi
+                                COMPREPLY=( $( compgen -W "$opts" $pp -- $cc ) )
+                                return 0
+                                ;;
+                                        
+                        --@(emake-annodetail))
+                                pp=""
+                                cc=${cur}
+                                levels='basic env file history lookup registry waiting'
+                                if [[ "$cur" == *,* ]]; then
+                                    cc=${cur/*,/}
+                                    pp="-P ${cur/,$cc/,}"
+                                    _filterout "$pp" "$levels"
+                                    levels=$_filtered
+                                fi
+                                COMPREPLY=( $( compgen -W "$levels" $pp -- $cc ) )
+                                return 0
+                                ;;
+
+                        --emake-@(annoupload|autodepend|blind-create|collapse|disable-chain-cleanup|disable-variable-pruning|history-force|mergestreams|pedantic|showinfo|gen-subbuild-db))
+                                COMPREPLY=( $( compgen -W '0 1' -- $cur ) )
+                                return 0
+                                ;;
+                esac
+        fi
+
+        if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $( compgen -W '-b -B -C -e -f -h -i -I\
+                        -j -l -k -m -n -r -R - s -S -v -w -W \
+                        --always-make                           \
+                        --assume-new=                           \
+                        --directory=                            \
+                        --dont-keep-going                       \
+                        --dry-run                               \
+                        --environment-overrides                 \
+                        --file=                                 \
+                        --help                                  \
+                        --ignore-errors                         \
+                        --include=                              \
+                        --include-dir=                          \
+                        --jobs                                  \
+                        --just-print                            \
+                        --keep-going                            \
+                        --load-average                          \
+                        --makefile=                             \
+                        --max-load                              \
+                        --new-file=                             \
+                        --no-builtin-rules                      \
+                        --no-builtin-variables                  \
+                        --no-print-directory                    \
+                        --print-directory                       \
+                        --quiet                                 \
+                        --recon                                 \
+                        --silent                                \
+                        --stop                                  \
+                        --touch                                 \
+                        --version                               \
+                        --warn-undefined-variables              \
+                        --what-if=                              \
+                        --emake-annodetail=                     \
+                        --emake-annofile=                       \
+                        --emake-annoupload=                     \
+                        --emake-autodepend=                     \
+                        --emake-big-file-size=                  \
+                        --emake-blind-create=                   \
+                        --emake-build-label=                    \
+                        --emake-class=                          \
+                        --emake-cluster-timeout=                \
+                        --emake-cm=                             \
+                        --emake-collapse=                       \
+                        --emake-debug=                          \
+                        --emake-disable-chain-cleanup=          \
+                        --emake-disable-pragma=                 \
+                        --emake-disable-variable-pruning=       \
+                        --emake-emulation=                      \
+                        --emake-emulation-table=                \
+                        --emake-exclude-env=                    \
+                        --emake-history=                        \
+                        --emake-historyfile=                    \
+                        --emake-history-force=                  \
+                        --emake-idle-time=                      \
+                        --emake-impersonate-user=               \
+                        --emake-job-limit=                      \
+                        --emake-ledger=                         \
+                        --emake-ledgerfile=                     \
+                        --emake-clearcase=                      \
+                        --emake-logfile=                        \
+                        --emake-logfile-mode=                   \
+                        --emake-maxagents=                      \
+                        --emake-mem-limit=                      \
+                        --emake-mergestreams=                   \
+                        --emake-pedantic=                       \
+                        --emake-priority=                       \
+                        --emake-rdebug=                         \
+                        --emake-remake-limit=                   \
+                        --emake-resource=                       \
+                        --emake-rlogdir=                        \
+                        --emake-root=                           \
+                        --emake-read-only=                      \
+                        --emake-showinfo=                       \
+                        --emake-subbuild-db=                    \
+                        --emake-gen-subbuild-db=                \
+                        --emake-tmpdir=                         \
+                        --emake-proxy-dir=                      \
+                        --emake-crossmake=                      \
+                        ' -- $cur ) )
+        else
+                # before we check for makefiles, see if a path was specified
+                # with -C
+                for (( i=0; i < ${#COMP_WORDS[@]}; i++ )); do
+                        if [[ ${COMP_WORDS[i]} == -C ]]; then
+                                # eval for tilde expansion
+                                eval makef_dir=${COMP_WORDS[i+1]}
+                                break
+                        fi
+                done
+
+                # make reads `GNUmakefile', then `makefile', then `Makefile'
+                if [ -f ${makef_dir}/GNUmakefile ]; then
+                        makef=${makef_dir}/GNUmakefile
+                elif [ -f ${makef_dir}/makefile ]; then
+                        makef=${makef_dir}/makefile
+                elif [ -f ${makef_dir}/Makefile ]; then
+                        makef=${makef_dir}/Makefile
+                else
+                        makef=${makef_dir}/*.mk        # local convention
+                fi
+
+                # before we scan for targets, see if a Makefile name was
+                # specified with -f
+                for (( i=0; i < ${#COMP_WORDS[@]}; i++ )); do
+                        if [[ ${COMP_WORDS[i]} == -f ]]; then
+                                # eval for tilde expansion
+                                eval makef=${COMP_WORDS[i+1]}
+                                break
+                        fi
+                done
+
+                [ ! -f $makef ] && return 0
+
+                # deal with included Makefiles
+                makef_inc=$( grep -E '^-?include' $makef | sed -e "s,^.* ,"$makef_dir"/," )
+
+                for file in $makef_inc; do
+                        [ -f $file ] && makef="$makef $file"
+                done
+
+                COMPREPLY=( $( awk -F':' '/^[a-zA-Z0-9][^$#\/\t=]*:([^=]|$)/ \
+                                {split($1,A,/ /);for(i in A)print A[i]}' \
+                                $makef 2>/dev/null | command grep "^$cur" ) \
+                                $( compgen -f ) )
+        fi
+} &&
+complete -o nospace -F _emake $filenames emake
+
+# Completion for einsight:  should only match *.anno and *.xml files.
+
+_einsight()
+{
+        local cur prev xspec IFS=$'\t\n'
+        cur=`_get_cword`
+
+        COMPREPLY=()
+        COMPREPLY=( $( compgen -f -X "!*.anno" -- $cur ) \
+                    $( compgen -f -X "!*.xml"  -- $cur ) \
+                    $( compgen -d -- $cur ) )
+        return 0
+} &&
+complete -F _einsight $filenames einsight
