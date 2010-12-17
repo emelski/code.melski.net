@@ -1,13 +1,81 @@
+#   Bash completion for ElectricAccelerator
+#
+#   Copyright © 2010, Eric Melski <ericm@electric-cloud.com>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2, or (at your option)
+#   any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software Foundation,
+#   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+#   Portions of this software are derived from the bash-completion project,
+#   available here:
+#
+#   http://bash-completion.alioth.debian.org/
+
+# Get the word to complete.
+# This is nicer than ${COMP_WORDS[$COMP_CWORD]}, since it handles cases
+# where the user is completing in the middle of a word.
+# (For example, if the line is "ls foobar",
+# and the cursor is here -------->   ^
+# it will complete just "foo", not "foobar", which is what the user wants.)
+#
+#
+# Accepts an optional parameter indicating which characters out of
+# $COMP_WORDBREAKS should NOT be considered word breaks. This is useful
+# for things like scp where we want to return host:path and not only path.
+#
+# From the bash-completion project.
+
+_get_cword()
+{
+        if [[ "${#COMP_WORDS[COMP_CWORD]}" -eq 0 ]] || [[ "$COMP_POINT" == "${#COMP_LINE}" ]]; then
+                echo "${COMP_WORDS[COMP_CWORD]}"
+        else
+                local i
+                local cur="$COMP_LINE"
+                local index="$COMP_POINT"
+                for (( i = 0; i <= COMP_CWORD; ++i )); do
+                        while [[ "${#cur}" -ge ${#COMP_WORDS[i]} ]] && [[ "${cur:0:${#COMP_WORDS[i]}}" != "${COMP_WORDS[i]}" ]]; do
+                                cur="${cur:1}"
+                                index="$(( index - 1 ))"
+                        done
+                        if [[ "$i" -lt "$COMP_CWORD" ]]; then
+                                local old_size="${#cur}"
+                                cur="${cur#${COMP_WORDS[i]}}"
+                                local new_size="${#cur}"
+                                index="$(( index - old_size + new_size ))"
+                        fi
+                done
+                
+                if [[ "${COMP_WORDS[COMP_CWORD]:0:${#cur}}" != "$cur" ]]; then
+                        # We messed up! At least return the whole word so things 
+                        # keep working
+                        echo "${COMP_WORDS[COMP_CWORD]}"
+                else
+                        echo "${cur:0:$index}"
+                fi
+        fi
+}
+
 # This function performs file and directory completion. It's better than
 # simply using 'compgen -f', because it honours spaces in filenames.
 # If passed -d, it completes only on directories. If passed anything else,
 # it's assumed to be a file glob to complete on.
 #
+# From the bash-completion package.
+
 _filedir()
 {
         local IFS=$'\t\n' xspec
-
-        _expand || return 0
 
         local toks=( ) tmp
         while read -r tmp; do
@@ -24,11 +92,11 @@ _filedir()
         COMPREPLY=( "${COMPREPLY[@]}" "${toks[@]}" )
 }
 
+# Filter a list of words ($1) out of another list of words ($2).
+# Result is stored in $_filtered after this function returns.
+
 _filterout()
 {
-        # Filter a list of words ($1) out of another list of words ($2).
-        # Result is stored in $_filtered after this function returns.
-
         local IFS=$'\t\n ,' n
         _filtered=$2
         for n in $1 ; do
@@ -64,15 +132,15 @@ _emake()
                 prev=${cur/=*/}
                 cur=${cur/*=/}
                 case "$prev" in
-                        --@(file|makefile|emake-annofile|emake-historyfile|emake-ledgerfile|emake-subbuild-db))
+                        --file|--makefile|--emake-annofile|--emake-historyfile|--emake-ledgerfile|--emake-subbuild-db)
                                 _filedir
                                 return 0
                                 ;;
-                        --@(directory|include-dir|emake-tmpdir))
+                        --directory|--include-dir|--emake-tmpdir)
                                 _filedir -d
                                 return 0
                                 ;;
-                        --@(emake-debug))
+                        --emake-debug)
                                 pp=""
                                 cc=${cur}
                                 if [[ -n $cc ]] ; then
@@ -84,7 +152,7 @@ _emake()
                                 ;;
 
 
-                        --@(emake-clearcase))
+                        --emake-clearcase)
                                 pp=""
                                 cc=${cur}
                                 opts='rofs vobs'
@@ -99,17 +167,17 @@ _emake()
                                 return 0
                                 ;;
                                         
-                        --@(emake-history))
+                        --emake-history)
                                 COMPREPLY=( $( compgen -W 'create merge read' -- $cur ) )
                                 return 0
                                 ;;
 
-                        --@(emake-emulation))
+                        --emake-emulation)
                                 COMPREPLY=( $( compgen -W 'gmake gmake3.80 gmake3.81 ant' -- $cur ) )
                                 return 0
                                 ;;
                                         
-                        --@(emake-ledger))
+                        --emake-ledger)
                                 pp=""
                                 cc=${cur}
                                 opts='timestamp size command'
@@ -123,7 +191,7 @@ _emake()
                                 return 0
                                 ;;
                                         
-                        --@(emake-annodetail))
+                        --emake-annodetail)
                                 pp=""
                                 cc=${cur}
                                 levels='basic env file history lookup registry waiting'
@@ -137,7 +205,7 @@ _emake()
                                 return 0
                                 ;;
 
-                        --emake-@(annoupload|autodepend|blind-create|collapse|disable-chain-cleanup|disable-variable-pruning|history-force|mergestreams|pedantic|showinfo|gen-subbuild-db))
+                        --emake-annoupload|--emake-autodepend|--emake-blind-create|--emake-collapse|--emake-disable-chain-cleanup|--emake-disable-variable-pruning|--emake-history-force|--emake-mergestreams|--emake-pedantic|--emake-showinfo|--emake-gen-subbuild-db)
                                 COMPREPLY=( $( compgen -W '0 1' -- $cur ) )
                                 return 0
                                 ;;
@@ -273,7 +341,7 @@ _emake()
 } &&
 complete -o nospace -F _emake $filenames emake
 
-# Completion for einsight:  should only match *.anno and *.xml files.
+# ElectricnInsight completion: match *.anno and *.xml files, and directories.
 
 _einsight()
 {
