@@ -24,34 +24,23 @@
     <h3>Usage</h3>
     <p>
       To use the Flowviz plugin, select the "Flowviz" tab.  You will be shown a
-      simple form with two inputs:  the id (or name) of the job to render, and
-      the scale at which to render.  Enter the required information and click 
-      the "Plot job" button.
+      simple form which you may use to specify either an active workflow or
+      a workflow definition.  Enter the required information and click the
+      "Show workflow" button.
     </p><p>
-      After a few seconds, you will see a visualization of the specified job.
-      Each step is rendered as a box with width proportional to the duration of
-      the step, positioned according to the start time relative to the start of
-      the job, and colored according to the outcome of the step (red, yellow or
-      green, for failure, warning or success, respectively).
+      After a few seconds, you will see a visualization of the specified
+      workflow or workflow definition.  States are shown as boxes; transitions
+      are the arrows between boxes.
     </p><p>
-      Steps which are broadcast steps or which run subprocedures are rendered 
-      no color themselves, and a dashed outline which surrounds all the child
-      steps.
+      When viewing an active workflow, the currently active state will be
+      highlighted in red, and any available manual transitions from that state
+      will be highlighted as well.  To advance the workflow, you may click on
+      any available transition.
     </p><p>
-      Note that the rendering scale defines a minimum size for steps to
-      appear in the render.  For example, if the scale is specified as "10
-      seconds per pixel", then steps which are less than 10 seconds in duration
-      will not be rendered.  You can redo the render at a different scale if
-      you require greater detail in the rendering.
-    </p><p>
-      The vertical position of steps has no particular significance,
-      except that subprocedures do not cross: that is, all the steps for a
-      given subprocedure are either entirely above or entirely below the steps
-      for any other subprocedure.  Beyond that, the vertical position is chosen
-      so as to minimize the overall height of the visualization.
-    </p><p>
-      Hovering over a step in the rendering will display a popup containing the
-      step name.  Click on a step will load the step details page for the step.
+      When viewing a workflow definition, you may create new states by clicking
+      the "Create State Definition" link.  You can create new transitions by
+      first clicking on a state in the graph to go to the "State Definition
+      Detail" page, and from there adding a new transition.
     </p>
   </componentContainer>
 </configDefinition>
