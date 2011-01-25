@@ -1,0 +1,16 @@
+<componentContainer>
+  <component plugin="EC-Core" ref="urlLoader">
+    <plugin>Flowviz</plugin>
+    <version>1.0</version>
+    <url>cgi-bin/flowviz.cgi</url>
+    <style>../../lib/styles/global.css</style>
+    <style>../../lib/styles/data.css</style>
+    <style>../../lib/styles/PagedTable.css</style>
+    <style>../../styles/JobStepTable.css</style>
+    <style>../../styles/JobSummary.css</style>
+    <style>../../lib/styles/IteratingTable.css</style>
+    <style>../../lib/styles/StdFrame.css</style>
+    <style>../../lib/styles/Header.css</style>
+    <style>../../lib/styles/ActionList.css</style>
+  </component>
+</componentContainer>

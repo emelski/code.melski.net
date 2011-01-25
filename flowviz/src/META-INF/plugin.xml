@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<plugin>
+  <key>Flowviz</key>
+  <version>1.0</version>
+  <label>Flowviz</label>
+  <description>Visualize workflow execution.</description>
+  <vendor>Eric Melski</vendor>
+  <depends>EC-Core</depends>
+  <help>help.xml</help>
+</plugin>
+
