@@ -31,6 +31,7 @@ my %states = ();                ;# Map of state names to state id's.
 my $stateId;
 my $stateName;
 my $startable;
+my $startingStart = "";
 my $value = "";                 ;# Text contents of the current tag.
 
 my $sourceState;
@@ -61,6 +62,8 @@ sub WorkflowElementEnd {
         $workflowDef = $value;
     } elsif ($element eq "activeState") {
         $activeState = $value;
+    } elsif ($element eq "startingState") {
+        $startingState = $value;
     }
 }
 
@@ -104,7 +107,7 @@ sub StatesElementEnd {
         }
 
         print $dotIn "$stateId [label=\"$stateName\" color=\"$color\" fontcolor=\"$fontcolor\"$url fontsize=\"10\"]\n";
-        if ($startable) {
+        if ($startable || $startingState eq $stateName) {
             print $dotIn "start -> $stateId\n";
         }
     }
@@ -133,6 +136,21 @@ sub TransitionsElementEnd {
                 print $dotIn "$tgt [color=\"black\" fontcolor=\"black\"]\n";
 
                 if ($trigger eq "manual") {
+                    # NOTE: if redirectTo worked on the transitionWorkflow URL,
+                    # then we could use the following URL here and seamlessly 
+                    # handle transitions that require parameters:
+                    #
+                    # $url = " URL=\""
+                    #     . "/commander/link/transitionWorkflow/projects/"
+                    #     . uri_escape($projectName) . "/workflows/"
+                    #     . uri_escape($workflowName) . "/transitions/"
+                    #     . uri_escape($transName) . "?s=Flowviz&redirectTo="
+                    #     . uri_escape("/commander/pages/Flowviz-1.0/flowviz"
+                    #          . "?name=" . $workflowName 
+                    #          . "&proj=" . $projectName
+                    #          . "&s=Flowviz")
+                    #     . "\" target=\"_top\"";
+
                     $url = " URL=\"/commander/pages/Flowviz-1.0/flowviz"
                         . "?transition=" . uri_escape($transName)
                         . "&name=" . uri_escape($workflowName)
@@ -195,6 +213,7 @@ sub EmitForm {
 </tr>
 <tr><td colspan="2"><input type="submit" value="Show workflow"/></td></tr>
 </table>
+<input type="hidden" name="mode" value="top"/>
 <input type="hidden" name="s" value="Flowviz"/>
 </form>
 FORM
@@ -251,6 +270,76 @@ if (defined $params{"name"}) {
         });
     }
 
+    # If the CGI was invoked in 'top' mode, just output the boilerplate and
+    # <object> tag, then return.  The cgi will be invoked a second time to
+    # actually render the graph.
+
+    if ($params{"mode"} ne "render") {
+        print "Content-type: text/html\n\n";
+        print "Displaying workflow";
+        if ($type eq "definition") {
+            print " definition";
+        }
+        print "<br>";
+        print "<a href=\"/commander/link/projectDetails/projects/" 
+            . uri_escape($projectName) . "\">Project: " 
+            . $projectName . "</a><br>";
+        if ($type eq "definition") {
+            # Link to the definition details page.
+
+            print 
+                "<a href=\"/commander/link/workflowDefinitionDetails/projects/"
+                . uri_escape($projectName) . "/workflowDefinitions/"
+                . uri_escape($workflowName) . "?s=Flowviz&redirectTo="
+                . uri_escape("/commander/pages/Flowviz-1.0/flowviz"
+                             . "?type=definition"
+                             . "&name=" . $workflowName 
+                             . "&proj=" . $projectName
+                             . "&s=Flowviz")
+                . "\">$workflowName</a><br>\n";
+
+            # Include a link for creating new steps in the workflow definition.
+
+            print "<a href=\"/commander/link/editStateDefinition/projects/"
+                . uri_escape($projectName) . "/workflowDefinitions/"
+                . uri_escape($workflowName) . "?redirectTo=" 
+                . uri_escape("/commander/pages/Flowviz-1.0/flowviz"
+                             . "?type=definition"
+                             . "&name=" . $workflowName 
+                             . "&proj=" . $projectName
+                             . "&s=Flowviz")
+                . "\">Create State Definition</a><br>\n";
+        } else {
+            # Link to the workflow details page.
+            
+            print "<a href=\"/commander/link/workflowDetails/projects/"
+                . uri_escape($projectName) . "/workflows/"
+                . uri_escape($workflowName) . "?s=Flowviz&redirectTo="
+                . uri_escape("/commander/pages/Flowviz-1.0/flowviz"
+                             . "?type=workflow"
+                             . "&name=" . $workflowName 
+                             . "&proj=" . $projectName
+                             . "&s=Flowviz")
+                . "\">$workflowName</a><br>\n";
+        }
+
+        # Use an <object> tag to embed the actual rendered result.
+
+        my $dim = " width=\"60%\" height=\"60%\"";
+        if ($q->user_agent() =~ m/Firefox/) {
+            $dim = "";
+        }
+        print "<object$dim type=\"image/svg+xml\" ";
+        print "data=\"../../plugins/Flowviz-1.0/cgi-bin/flowviz.cgi"
+            . "?name=" . uri_escape($workflowName)
+            . "&proj=" . uri_escape($projectName)
+            . "&mode=render"
+            . "&type=" . uri_escape($type)
+            . "\">\n";
+        print "</object>\n";
+        exit
+    }
+
     my $workflowXML;
     my $statesXML;
     my $transitionsXML;
@@ -305,6 +394,7 @@ if (defined $params{"name"}) {
     print $dotIn "outputorder=edgesfirst\n";
     print $dotIn "node [shape=box style=filled fillcolor=\"#ffffffe0\"]\n";
     print $dotIn "edge [dir=front]\n";
+
     print $dotIn "start [shape=circle style=filled fillcolor=\"#a5a8bdff\" label=\"start\" fontsize=\"10\"]\n";
 
     $parser->setHandlers(
@@ -321,76 +411,12 @@ if (defined $params{"name"}) {
     print $dotIn "}\n";
     close $dotIn;
 
-    my($svg,$filename) = tempfile("/tmp/flowviz_XXXXXX");
-    print $svg "Content-type: image/svg+xml\n\n";
+    print "Content-type: image/svg+xml\n\n";
     while (<$dotOut>) {
-        print $svg "$_";
+        print $_;
     }
-    close $svg;
     close $dotOut;
     waitpid($dotpid, 0);
-
-    # Unfortunately due to the way commander handles plugins, we can't just
-    # straight-up return the SVG.  We have to return an HTML fragment that has
-    # an <object> tag that references the SVG content.  Of course we don't want
-    # to leave files littering the filesystem, so we use a custom CGI that
-    # handles streaming the file content and then deletes it.
-
-    my $counter = $filename;
-    $counter =~ s/\/tmp\/flowviz_//;
-
-    print "Content-type: text/html\n\n";
-    print "Displaying workflow";
-    if ($type eq "definition") {
-        print " definition";
-    }
-    print "<br>";
-    print "<a href=\"/commander/link/projectDetails/projects/" 
-        . uri_escape($projectName) . "\">Project: " . $projectName . "</a><br>";
-    if ($type eq "definition") {
-        # Link to the definition details page.
-
-        print "<a href=\"/commander/link/workflowDefinitionDetails/projects/"
-            . uri_escape($projectName) . "/workflowDefinitions/"
-            . uri_escape($workflowName) . "?s=Flowviz&redirectTo="
-            . uri_escape("/commander/pages/Flowviz-1.0/flowviz"
-                         . "?type=definition"
-                         . "&name=" . $workflowName 
-                         . "&proj=" . $projectName
-                         . "&s=Flowviz")
-            . "\">$workflowName</a><br>\n";
-
-        # Include a link for creating new steps in the workflow definition.
-
-        print "<a href=\"/commander/link/editStateDefinition/projects/"
-            . uri_escape($projectName) . "/workflowDefinitions/"
-            . uri_escape($workflowName) . "?redirectTo=" 
-            . uri_escape("/commander/pages/Flowviz-1.0/flowviz"
-                         . "?type=definition"
-                         . "&name=" . $workflowName 
-                         . "&proj=" . $projectName
-                         . "&s=Flowviz")
-            . "\">Create State Definition</a><br>\n";
-    } else {
-        # Link to the workflow details page.
-
-        print "<a href=\"/commander/link/workflowDetails/projects/"
-            . uri_escape($projectName) . "/workflows/"
-            . uri_escape($workflowName) . "?s=Flowviz&redirectTo="
-            . uri_escape("/commander/pages/Flowviz-1.0/flowviz"
-                         . "?type=workflow"
-                         . "&name=" . $workflowName 
-                         . "&proj=" . $projectName
-                         . "&s=Flowviz")
-            . "\">$workflowName</a><br>\n";
-    }
-
-    # Use an <object> tag to embed the actual rendered result.
-
-    print "<object height=\"60%\" width=\"60%\" type=\"image/svg+xml\" ";
-    print "data=\"/cgi-bin/flowviz.cgi?n=" . uri_escape($counter) . "\">\n";
-    print "</object>\n";
-
 } else {
     EmitForm("Specify the workflow or workflow definition to display:", 0);
 }
