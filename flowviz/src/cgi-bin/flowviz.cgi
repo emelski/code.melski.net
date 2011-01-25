@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright (c) 2011 Eric Melski
+# All rights reserved.
 
 exec "$COMMANDER_HOME/bin/ec-perl" -x "$0" "${@}"
 #exec "perl" -x "$0" "${@}"
