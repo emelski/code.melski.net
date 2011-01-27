@@ -41,7 +41,9 @@
       the "Create State Definition" link.  You can create new transitions by
       first clicking on a state in the graph to go to the "State Definition
       Detail" page, and from there adding a new transition.
-    </p><p>
+    </p>
+    <h3>Copying</h3>
+    <p>
       Flowviz 1.0<br/>
       Copyright (c) 2011, Eric Melski<br/>
     </p><p> 

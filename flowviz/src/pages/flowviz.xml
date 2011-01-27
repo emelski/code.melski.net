@@ -1,7 +1,8 @@
 <componentContainer>
   <component plugin="EC-Core" ref="urlLoader">
     <plugin>Flowviz</plugin>
-    <version>1.0</version>
+    <version>1.1</version>
+    <title>Flowviz</title>
     <url>cgi-bin/flowviz.cgi</url>
     <style>../../lib/styles/global.css</style>
     <style>../../lib/styles/data.css</style>

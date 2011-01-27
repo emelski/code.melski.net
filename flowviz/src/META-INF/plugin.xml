@@ -2,7 +2,7 @@
 
 <plugin>
   <key>Flowviz</key>
-  <version>1.0</version>
+  <version>1.1</version>
   <label>Flowviz</label>
   <description>Visualize workflow execution.</description>
   <vendor>Eric Melski</vendor>
