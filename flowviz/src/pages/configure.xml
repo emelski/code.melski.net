@@ -1,0 +1,8 @@
+<componentContainer>
+  <title>Flowviz - Configure</title>
+  <component plugin="EC-Core" ref="urlLoader">
+    <plugin>Flowviz</plugin>
+    <version>2.0.0</version>
+    <url>configure.php</url>
+  </component>
+</componentContainer>

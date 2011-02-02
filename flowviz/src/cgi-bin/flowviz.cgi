@@ -1,18 +1,33 @@
 #!/bin/sh
 # Copyright (c) 2011 Eric Melski
+# Copyright (c) 2011 Electric Cloud, Inc.
 # All rights reserved.
 #
-# flowviz is free software; you can redistribute it and/or modify it under the
-# terms of the GNU General Public License as published by the Free Software
-# Foundation; either version 3 of the License, or (at your option) any later
-# version.
+# flowviz is free software.
 #
-# flowviz is distributed WITHOUT ANY WARRANTY; without even the implied
-# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License along with
-# this program.  If not, see <http://www.gnu.org/licenses/>.
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+# * Neither the name of Eric Melski nor Electric Cloud nor the names of its
+# employees may be used to endorse or promote products derived from this
+# software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 exec "$COMMANDER_HOME/bin/ec-perl" -x "$0" "${@}"
 
@@ -26,7 +41,7 @@ use ElectricCommander;
 
 ###########################################################################
 
-my $VERSION = "1.1";
+my $VERSION = "2.0.0";
 
 my %states = ();                ;# Map of state names to state id's.
 my $stateId;
@@ -357,11 +372,12 @@ $parser->setHandlers(
 my $workflowXML;
 my $statesXML;
 my $transitionsXML;
+my $response;
 
 if ($type eq "workflow") {
     # Get the details on the workflow so we can determine its active state.
 
-    my $response = $commander->getWorkflow({
+    $response = $commander->getWorkflow({
         projectName => $projectName,
         workflowName => $workflowName
     });
@@ -432,10 +448,62 @@ close $dotfile;
 # Now we have a description of the graph, in DOT format.  Use "dot" to
 # transform it into SVG, and copy the result to our own stdout for rendering.
 
-open(SVG, "dot -Tsvg $dotFilename |");
+my $dot = "dot";
+$response = $commander->getProperty({
+    propertyName => "/projects/Flowviz-" . $VERSION . "/dotPath"
+});
+my @results = $response->findnodes("/responses/response/property/value/text()");
+if (defined $results[0]) {
+    my $tmp = $results[0]->toString;
+    if ($tmp != "") {
+        $dot = $tmp;
+    }
+}
+
+open(SVG, "$dot -Tsvg $dotFilename |");
 print "Content-type: image/svg+xml\n\n";
+my $inNode = 0;
+my $lx = 0;
+my $ly = 0;
+my $rx = 0;
+my $ry = 0;
 while (<SVG>) {
-    print $_;
+    # Watch for lines marking the start of a graph node.
+
+    my $line = $_;
+    print $line;
+
+    if ($type eq "definition") {
+        if ($line =~ m/class="node"/) {
+            $inNode = 1;
+        } elsif ($inNode) {
+            if ($line =~ m/<polygon .* points=\"[^,]+,[^,]+ ([^,]+),([^,]+) [^,]+,[^,]+ ([^,]+),([^,]+)/) {
+                $lx = $1;
+                $ly = $2;
+                $rx = $3;
+                $ry = $4;
+            } elsif ($line =~ m/<text.*>(.*)<\/text>/) {
+                $stateName = $1;
+            } elsif ($line =~ m/<\/a>/) {
+                # Inject a link into the SVG for the "add transition" button.
+
+                my $url = "/commander/link/editTransitionDefinition/projects/"
+                    . uri_escape($projectName) . "/workflowDefinitions/"
+                    . uri_escape($workflowName) . "/stateDefinitions/"
+                    . uri_escape($stateName) . "?s=Flowviz&amp;redirectTo="
+                    . uri_escape("/commander/pages/Flowviz-" . $VERSION 
+                                 . "/flowviz"
+                                 . "?type=definition"
+                                 . "&name=" . $workflowName 
+                                 . "&proj=" . $projectName
+                                 . "&s=Flowviz");
+
+                print "<a xlink:href=\"$url\" target=\"_top\"><text text-anchor=\"end\" x=\"$rx\" y=\"$ry\" style=\"font-family:Times New Roman;font-size:10.00;\">+</text></a>";
+
+                $inNode = 0;
+            }
+        }
+    }
 }
 close SVG;
 

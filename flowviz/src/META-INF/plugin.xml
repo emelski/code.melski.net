@@ -2,9 +2,11 @@
 
 <plugin>
   <key>Flowviz</key>
-  <version>1.1</version>
+  <version>2.0.0</version>
   <label>Flowviz</label>
+  <category>Visualization</category>
   <description>Visualize workflow execution.</description>
+  <configure>configure.xml</configure>
   <vendor>Eric Melski</vendor>
   <depends>EC-Core</depends>
   <help>help.xml</help>
