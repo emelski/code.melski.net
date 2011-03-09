@@ -8,6 +8,17 @@
 #       simple test cases and trying to build them.  The end output is the file
 #       kernel_config.h, which contains several #defines that are referenced
 #       in the source code as needed.
+#
+# Copyright (c) 2011 Eric Melski
+#
+# genconfig.sh is free software; you can redistribute it and/or modify it 
+# under the terms of the GNU General Public License as published by the Free 
+# Software Foundation; either version 2, or (at your option) any later version.
+#
+# genconfig.sh is distributed in the hope that it will be useful, but WITHOUT 
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more 
+# details.
 
 KERNELDIR=/lib/modules/`uname -r`/build
 PWD=`pwd`
