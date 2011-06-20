@@ -81,7 +81,7 @@ _get_cword()
         fi
 }
 
-# _filedir
+# _filedir_accelerator
 #
 # This function performs file and directory completion. It's better than
 # simply using 'compgen -f', because it honours spaces in filenames.
@@ -90,7 +90,7 @@ _get_cword()
 #
 # From the bash-completion package.
 
-_filedir()
+_filedir_accelerator()
 {
         local IFS=$'\t\n' xspec
 
@@ -139,11 +139,11 @@ _emake()
         # --name value style option
         case $prev in
                 -f|-o|-W|--file|--makefile|--old-file|--new-file|--assume-old|--assume-new|--what-if)
-                        _filedir
+                        _filedir_accelerator
                         return 0
                         ;;
                 -I|-C|-directory|--include-dir)
-                        _filedir -d
+                        _filedir_accelerator -d
                         return 0
                         ;;
         esac
@@ -154,11 +154,11 @@ _emake()
                 cur=${cur/*=/}
                 case "$prev" in
                         --file|--makefile|--emake-annofile|--emake-historyfile|--emake-ledgerfile|--emake-subbuild-db)
-                                _filedir
+                                _filedir_accelerator
                                 return 0
                                 ;;
                         --directory|--include-dir|--emake-tmpdir)
-                                _filedir -d
+                                _filedir_accelerator -d
                                 return 0
                                 ;;
                         --emake-debug)
