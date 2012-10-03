@@ -1,0 +1,289 @@
+2012-10-02  Eric Melski  <ericm@electric-cloud.com>
+
+	EC-9502: lofs crash when using git on RHEL6.2.
+
+	* inode.c (lofs_follow_down): Only drop reference count on the old
+	path if the lookup of the new path was successful.  If the new lookup
+	returned an error, then we don't have a new path to hang our hat on.
+	(lofs_lookup_and_interpose_lower): Instead of returning a successful
+	negative dentry on error from lofs_follow_down, propagate the error and
+	drop reference counts on the lower path and d_drop the lofs dentry.
+
+2012-09-21  Eric Melski  <ericm@electric-cloud.com>
+
+	EC-9483: lofs erroneously reports non-existing automounts as
+	existing.
+
+	* kthread.c (lofs_threadfn): If kern_path/path_lookup returns an error,
+	relay that information to the caller.
+	(lofs_lookup_managed): If the lookup failed, return an error to the
+	caller.
+
+	* inode.c (lofs_follow_down): Make sure to drop the reference count
+	on the original dentry/vfsmount after calling lofs_lookup_managed,
+	which will have returned a new dentry/vfsmount.  If lofs_lookup_managed
+	returns an error, relay that to the caller.
+	(lofs_lookup_and_interpose_lower): If lofs_follow_down returns an
+	error, treat that like a non-existing entry in lofs.
+
+	* tests/lofs.test: Added a test for non-existing automounts.
+
+2012-09-19  Eric Melski  <ericm@electric-cloud.com>
+
+	EC-9481: cannot access automounted filesystems via lofs on RHEL5.8.
+
+	* genconfig.sh: Extend checks for follow_down to cover a broader
+	range of kernels, including RHEL5.8 which has a backport of managed
+	dentries, but a different backport than RHEL6 uses.
+
+	* lofs_kernel.h: Define our own version of "struct path" if the kernel
+	doesn't already have it.  Added macros to abstract kernel-specific
+	differences in follow_down, d_path, and managed dentry detection.
+
+	* inode.c (lofs_follow_down): Simplify code using genconfig-based
+	macros.
+
+	* kthread.c: Allow the worker thread to compile on RHEL5.8.
+
+	* tests/lofs.test: Added an explicit check to verify that we can
+	access automounted filesystems via lofs.
+
+2012-09-15  Eric Melski  <ericm@electric-cloud.com>
+
+	* genconfig.sh: Extend follow_down checks to handle a broader range
+	of kernels.
+
+	* kthread.c: Define a worker thread for performing lookups of
+	automount paths.  The key function is lofs_lookup_managed(), which
+	may be invoked during a lookup in lofs.
+
+	* main.c (lofs_init): Initialize the lookup worker thread.
+	(lofs_exit): Shutdown the lookup worker thread.
+
+	* inode.c (lofs_follow_down): New function to handle traversing
+	mountpoints during a lookup in lofs.  May call lofs_lookup_managed()
+	to assist traversing automounted mountpoints.
+	(lofs_lookup_and_interpose_lower): Call lofs_follow_down, rather
+	than directly using the kernel's follow_down.
+
+2012-08-29  Eric Melski  <ericm@electric-cloud.com>
+
+	EC-9453: any build started on UB11.10 causes kernel panics.
+	Tweaked the way inodes are released in lofs to conform to the
+	"normal" pattern in Linux 3.x.  Also added some tweaks for Linux 3.5
+	compatibility which happened to be sitting in my workspace.
+
+	* genconfig.sh: Added checks for umode_t, end_writeback/clear_inode,
+	and d_make_root.
+
+	* lofs_kernel.h: Add some macros based on detected kernel
+	configuration to hide version-dependencies.
+
+	* inode.c (lofs_create, lofs_mkdir, lofs_mknod): Use our
+	CREATE_MODE_TYPE macro for the initial mode, since it is "int" for
+	some kernels and "umode_t" for others.
+
+	* main.c (lofs_mount): Use d_make_root instead of d_alloc_root, if
+	it's available.
+
+	* super.c (lofs_destroy_inode): If the kernel is RCU-enabled, push
+	memory release into our RCU callback.  Otherwise we cause kernel
+	panics for some reason.
+	(lofs_clear_inode): end_writeback was renamed to clear_inode in
+	the latest kernel versions (3.5+).
+
+2012-08-22  Eric Melski  <ericm@electric-cloud.com>
+
+	* super.c (lofs_destroy_inode): Add RCU cleanup, if the kernel supports
+	RCU lookup.
+
+2012-08-18  John Carey  <aeolus@electric-cloud.com>
+
+	Some fixes inspired by work on EC-9381, though it is
+	unlikely that they explain the problematic behavior.
+
+	* inode.c (lofs_lookup):
+	Support negative error returns from d_revalidate operation.
+	Support error return from d_invalidate function.
+	Eliminate unused argument to lofs_lookup_and_interpose_lower
+	and make it static because it is only used in the same file.
+	Adapt to changes in LOFS_ND_SAVE_ARGS/LOFS_ND_RESTORE_ARGS.
+
+	* dentry.c (lofs_d_revalidate):
+	Move some code to new function lofs_revalidate_lower for code
+	sharing with lofs_lookup.  Pass through negative error returns.
+
+	* lofs_kernel.h (LOFS_ND_SAVE_ARGS)
+	(LOFS_ND_RESTORE_ARGS):
+	Replace unused argument with new nameidata argument, so that these
+	macros do not require the nameidata pointer to be named "nd".
+
+2012-08-17  Eric Melski  <ericm@electric-cloud.com>
+
+	* genconfig.sh: Refactor the kernel feature detection logic to
+	improve performance.
+
+2012-08-16  Eric Melski  <ericm@electric-cloud.com>
+
+	* genconfig.sh: Check for the availability of filemap_write_and_wait.
+
+	* file.c (lofs_fsync): Use a little more sophistication in the way
+	lofs file data pages are pushed to the lower filesystem -- use
+	filemap_write_and_wait_range() or filemap_write_and_wait(), if
+	possible.  If neither is available, roll our own, with proper error
+	handling.
+
+2012-08-15  Eric Melski  <ericm@electric-cloud.com>
+
+	* file.c (lofs_fsync): Make sure that lofs file data pages are pushed
+	to the lower filesystem when the lofs file handle is fsync'd.
+
+2012-08-04  John Carey  <aeolus@electric-cloud.com>
+
+	EC-9381:  Agent uses unmounted EFS root as if mounted:
+
+	* inode.c (lofs_lookup): Lock the directory inode before calling
+	d_lookup, to match existing practice in the kernel and avoid
+	racing with directory modification.  This fix might prevent the
+	kernel panic in EC-9381, but at this time we have no proven theory
+	of how eliminating such races would have created the exact
+	symptoms we saw in the kernel dump.  Still, this fix is valid
+	in its own right, even if it was actually irrelevant to EC-9381.
+	There is no test of this change because, at least at the present
+	time, we have not found a good way of implementing such a test.
+
+2012-07-26  John Carey  <aeolus@electric-cloud.com>
+
+	EC-9392:  Premature destruction of vfsmount causes Linux kernel panic:
+
+	* main.c (lofs_privileged_open): Fix EC-9392: do NOT decrement the
+	reference counts for the dentry and vfsmount passed to dentry_open
+	after dentry_open fails because dentry_open already performed
+	those decrements as part of error recovery.
+
+2012-07-25  Eric Melski  <ericm@electric-cloud.com>
+
+	Updates for Linux 3.2 compatibility.  This batch of changes allows
+	lofs to compile and mount and pass most tests, but not quite all.
+
+	* genconfig.sh: Extend checks for vfs_fsync / vfs_fsync_range; add
+	check for set_nlink().  Record all tests to config.log for post-config
+	debugging.
+
+	* lofs_kernel.h: Remove lofs_interpose, add lofs_get_inode.  Add
+	SET_NLINK abstraction.
+
+	* inode.c: Adopt the inode/dentry interposition style from modern
+	Linux versions -- interpose via the inode rather than the dentry.
+	Update to use SET_NLINK instead of directly modifying inode.i_nlink.
+
+	* file.c (lofs_fsync): Handle the Linux 3.2.x variant of fsync.
+
+	* main.c (lofs_fill_super): Simplify, switch to new lofs_get_inode
+	style of interposing for the root inode.
+	(lofs_mount): Use d_alloc_root instead of d_alloc, since new versions
+	of Linux cannot take a NULL pointer in the latter.
+
+2012-07-23  Eric Melski  <ericm@electric-cloud.com>
+
+	* lofs_kernel.h: Add fields needed for Linux 3.0 initialization.
+
+	* main.c: Add Linux 3.0 initialization code.
+
+	* file.c: Only include use of the big kernel lock when the kernel has
+	a big kernel lock.
+
+	* super.c: if we're using file_system_type.mount, cleanup is handled
+	differently, so we don't use put_super.
+
+	* genconfig.sh: Added checks for file_system_type.mount field and the
+	big kernel lock.
+
+2012-06-26  Eric Melski  <ericm@electric-cloud.com>
+
+	* mmap.c (lofs_readpage):
+	* inode.c (module): Remove superfluous debugging output.
+
+2012-06-15  Eric Melski  <ericm@electric-cloud.com>
+
+	* inode.c (lofs_setattr): Make sure to copy the lower inode size to
+	the lofs inode.
+
+2012-06-14  Eric Melski  <ericm@electric-cloud.com>
+
+	* super.c (lofs_destroy_inode): Make sure to mutex_destroy the lower
+	file mutex.
+
+	* read_write.c (lofs_read_lower_page): Consolidated
+	lofs_read_lower_page and lofs_read_lower.
+
+	* mmap.c (lofs_write_begin): Simplified, we don't need to use
+	lofs_truncate it seems.
+
+	* main.c (lofs_privileged_open): Migrated from kthread.c.
+
+	* inode.c (lofs_create): Consolidate lofs_create, lofs_do_create and
+	lofs_create_underlying_file.
+	(lofs_lookup_and_interpose_lower): Prohibit lookups of lofs filesystems
+	via lofs.
+	(lofs_lookup): Move error check closer to the lookup_one_len call,
+	since we really only need to check for errors if we actually use
+	lookup_one_len.
+	(lofs_link): Don't d_drop entries.
+	(lofs_unlink): Don't d_drop entry.
+	(lofs_rmdir): Don't d_delete or d_drop, the VFS layer takes care of it.
+	(lofs_truncate): Removed, obsolete.
+	(lofs_setattr): Simplified, instead of using lofs_truncate, just let
+	the lower filesystem truncate and copy the attributes (but don't forget
+	to vm_truncate the page cache pages for the lofs file!)
+
+	* dentry.c (lofs_d_revalidate): Added a comment clarifying why we only
+	copy inode attributes in one branch of the logic here.
+
+	* file.c (lofs_open): Simplified code flow, removed superfluous debug
+	printouts.
+
+	* Makefile:
+	* Makefile.install: remove kthread.c from the build.
+
+	* tests/lofs.test: Added tests for various bits of functionality.
+
+2012-06-01  Eric Melski  <ericm@electric-cloud.com>
+
+	* super.c (lofs_destroy_inode): Don't d_drop the lower dentry. There's
+	no need, and that's actually quite rude, since it unhashes the dentry
+	and leaves it orphaned, along with the inode it references.  Basically
+	you shouldn't d_drop anybody's dentry but your own, and even then
+	probably only if it's a negative dentry (EC-9356).
+
+	* lofs/tests/lofs.test: Added a test that reliably crashes my test
+	machine without the fix, and works with the fix.
+
+2012-05-15  Eric Melski  <ericm@electric-cloud.com>
+
+	* inode.c (lofs_rename): Check for and prohibit cross-device renames.
+	The kernel can get tricked into trying to do these because lofs
+	represents many different filesystems through a single virtual
+	filesystem.
+
+2012-05-08  Eric Melski  <ericm@electric-cloud.com>
+
+	* super.c (lofs_destroy_inode): If lower_file is non-NULL, always fput
+	it, not just when the lower_dentry has a valid inode.
+
+2012-03-29  Eric Melski  <ericm@electric-cloud.com>
+
+	* read_write.c (lofs_read_lower_page): Renamed from
+	lofs_read_lower_page_segment, since it's only ever used to read whole
+	pages, not page segments; removed the page_offset and size parameters
+	as well, for the same reason.  Finally, make sure to zero fill the
+	remainder of a memory-mapped page, just to be safe (EC-9275).
+
+	* lofs_kernel.h:
+	* mmap.c (lofs_writepage, lofs_readpage): Update to match name change
+	for lofs_read_lower_page().
+
+	* tests/lofs.test (readFile): Added mmap_read_zerofill to verify that
+	we zero fill the end of the page when mapping a region that extends
+	past the end of a file.
+
