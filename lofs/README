@@ -1,0 +1,29 @@
+lofs, the Linux LOopback File System
+---------------------------------------------------------------------------
+
+Sometimes it is useful to be able to make a portion of the file system appear
+at another location in the file system tree.  There are a variety of mechanisms
+in Linux that attempt to do this, like bind mountpoints, slave mountpoints,
+and mount namespaces.  None of these are acceptable for my needs, for one 
+reason or another.
+
+This module is a Linux version of the Solaris filesystem of the same name.  Its
+chief contribution is the ability to mirror a portion of the file system,
+*including submounts*, to another location in the filesystem.  For example,
+given a filesystem like this:
+
+/		ext2fs
++ net		autofs
+  + tools	nfs
+
+Mounting lofs like this:
+
+    mount -t lofs -o dir=/ / /lofs
+
+Will make the following paths accessible, in addition to anything on the
+/ filesystem itself:
+
+    /lofs/net
+    /lofs/net/tools
+
+
