@@ -175,6 +175,17 @@ namespace eval ::Plotchart {
     set methodProc(fstep,dataconfig)        DataConfig
     set methodProc(fstep,xconfig)           XConfig
     set methodProc(fstep,yconfig)           YConfig
+    catch {
+    variable config
+    lappend config(charttypes) fstep
+    set config(fstep,components) {title margin text legend axis background}
+    foreach comp $config(fstep,components) {
+        foreach prop $config($comp,properties) {
+            set config(fstep,$comp,$prop)               [set _$prop]
+            set config(fstep,$comp,$prop,default)       [set _$prop]
+        }
+    }
+    }
 }
 
 proc ::Plotchart::DrawFStepData { w series xcrd ycrd } {
@@ -225,7 +236,8 @@ proc ::Plotchart::DrawFStepData { w series xcrd ycrd } {
 
 proc ::Plotchart::createFStepPlot { w xscale yscale } {
     variable data_series
-
+    variable config
+    
    foreach s [array names data_series "$w,*"] {
       unset data_series($s)
    }
@@ -233,6 +245,7 @@ proc ::Plotchart::createFStepPlot { w xscale yscale } {
    set newchart "fstep_$w"
    interp alias {} $newchart {} ::Plotchart::PlotHandler fstep $w
 
+   CopyConfig fstep $w
    foreach {pxmin pymin pxmax pymax} [MarginsRectangle $w] {break}
 
    foreach {xmin xmax xdelt} $xscale {break}
